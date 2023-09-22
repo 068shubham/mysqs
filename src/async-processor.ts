@@ -1,24 +1,7 @@
-import logger from '../logger'
-
-import { Logger } from 'winston'
-
-export interface AsyncHandler<M, R> {
-    execute: (message: M) => Promise<R>
-    error: (response: unknown) => void
-    messages: (count: number) => Promise<M[]>
-}
-
-export interface AsyncProcessorConfig<M, R> {
-    handler: AsyncHandler<M, R>
-    logger?: Logger
-    concurrency?: number
-    processingDelay?: number
-    startDelay?: number
-}
-
-export enum AsyncProcessorState {
-    INITIALISED, RUNNING, STOPPED, ERRORED
-}
+import { AsyncHandler } from './model/async-processor-handler.model'
+import { AsyncProcessorState } from './enum/async-processor.enum'
+import { AsyncProcessorConfig } from './model/async-processor-config.model'
+import { Logger } from './model/async-processor-logger.model'
 
 export class AsyncProcessor<M, R> {
     private handler: AsyncHandler<M, R>
@@ -34,7 +17,7 @@ export class AsyncProcessor<M, R> {
         this.concurrency = config.concurrency || 20
         this.processingDelay = config.processingDelay || 0
         this.startDelay = config.startDelay || 0
-        this.logger = config.logger || logger
+        this.logger = config.logger
     }
 
     private async getNextBatch(): Promise<M[]> {
@@ -46,8 +29,9 @@ export class AsyncProcessor<M, R> {
         setTimeout(() => {
             try {
                 this.handler.error(err)
-            } catch (err) {
-                this.logger.error(`Error in handleError: ${err}`)
+            } catch (err: unknown) {
+                this.logger.error('Unhandled error in handler.error', err)
+                throw err
             }
         }, 0)
     }
